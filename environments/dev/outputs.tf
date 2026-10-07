@@ -1,19 +1,29 @@
-output "vm_name" {
-  description = "Nombre de la VM de validacion"
-  value       = google_compute_instance.bootstrap_vm.name
+output "vpc_name" {
+  value = module.network.vpc_name
 }
 
-output "vm_internal_ip" {
-  description = "IP interna de la VM"
-  value       = google_compute_instance.bootstrap_vm.network_interface[0].network_ip
+output "nat_gateway" {
+  value = module.network.nat_name
 }
 
-output "vpc_id" {
-  description = "ID de la VPC creada"
-  value       = google_compute_network.lab_vpc.id
+output "vm_public_name" {
+  value = module.vm_public.name
 }
 
-output "subnet_cidr" {
-  description = "CIDR de la subnet"
-  value       = google_compute_subnetwork.lab_subnet.ip_cidr_range
+output "vm_public_external_ip" {
+  description = "Prueba curl a esta IP desde tu iMac para validar firewall HTTP"
+  value       = module.vm_public.external_ip
+}
+
+output "vm_public_internal_ip" {
+  value = module.vm_public.internal_ip
+}
+
+output "vm_private_name" {
+  value = module.vm_private.name
+}
+
+output "vm_private_internal_ip" {
+  description = "VM sin IP publica. Egress solo via NAT."
+  value       = module.vm_private.internal_ip
 }

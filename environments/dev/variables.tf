@@ -10,19 +10,19 @@ variable "region" {
 }
 
 variable "zone" {
-  description = "Zona por defecto dentro de la region"
+  description = "Zona por defecto"
   type        = string
   default     = "us-east1-b"
 }
 
 variable "environment" {
-  description = "Nombre del ambiente (dev/staging/prod)"
+  description = "Nombre del ambiente"
   type        = string
   default     = "dev"
 }
 
 variable "owner" {
-  description = "Dueno/responsable para labels"
+  description = "Dueno/responsable"
   type        = string
   default     = "hernando-almanza"
 }

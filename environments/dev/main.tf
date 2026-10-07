@@ -4,63 +4,69 @@ provider "google" {
   zone    = var.zone
 }
 
-# ----------------------------------------------------------
-# Fase 0 - Recurso de validacion end-to-end
-# Objetivo: confirmar que Terraform crea/destruye recursos en GCP
-# usando backend remoto en GCS. La VM e2-micro cae en Always Free.
-# ----------------------------------------------------------
+# =====================================================
+# Modulo red - toda la plomeria de red
+# =====================================================
+module "network" {
+  source = "../../modules/network"
 
-resource "google_compute_network" "lab_vpc" {
-  name                    = "vpc-lab-bootstrap"
-  auto_create_subnetworks = false
-  description             = "VPC minima para validar Terraform en Fase 0"
+  project_id          = var.project_id
+  region              = var.region
+  vpc_name            = "vpc-lab-${var.environment}"
+  public_subnet_cidr  = "10.10.1.0/24"
+  private_subnet_cidr = "10.10.2.0/24"
+  environment         = var.environment
 }
 
-resource "google_compute_subnetwork" "lab_subnet" {
-  name          = "subnet-lab-bootstrap"
-  ip_cidr_range = "10.10.0.0/24"
-  region        = var.region
-  network       = google_compute_network.lab_vpc.id
-}
+# =====================================================
+# VM PUBLICA (demo de bastion-like, solo para contrastar)
+# Lleva un nginx para probar el firewall de HTTP
+# =====================================================
+module "vm_public" {
+  source = "../../modules/compute"
 
-resource "google_compute_firewall" "allow_iap_ssh" {
-  name    = "fw-allow-iap-ssh"
-  network = google_compute_network.lab_vpc.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
-  }
-
-  # Rango oficial de Google IAP - permite SSH sin IP publica
-  source_ranges = ["35.235.240.0/20"]
-}
-
-resource "google_compute_instance" "bootstrap_vm" {
-  name         = "vm-lab-bootstrap"
-  machine_type = "e2-micro"
-  zone         = var.zone
-
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-12"
-      size  = 10
-      type  = "pd-standard"
-    }
-  }
-
-  network_interface {
-    network    = google_compute_network.lab_vpc.id
-    subnetwork = google_compute_subnetwork.lab_subnet.id
-    # Sin access_config = sin IP publica (acceso solo por IAP)
-  }
+  name             = "vm-public-${var.environment}"
+  zone             = var.zone
+  subnet_id        = module.network.public_subnet_id
+  assign_public_ip = true
+  tags             = ["ssh-iap", "web"]
 
   labels = {
     environment = var.environment
     owner       = var.owner
     managed_by  = "terraform"
-    phase       = "0-bootstrap"
+    tier        = "public"
+    phase       = "1-networking"
   }
 
-  tags = ["lab", "bootstrap"]
+  startup_script = <<-SCRIPT
+    #!/bin/bash
+    apt-get update
+    apt-get install -y nginx
+    echo "<h1>VM publica - ${var.environment}</h1>" > /var/www/html/index.html
+    systemctl enable nginx
+    systemctl start nginx
+  SCRIPT
+}
+
+# =====================================================
+# VM PRIVADA (el patron correcto para workloads de banca)
+# Sin IP publica. Egress solo via Cloud NAT.
+# =====================================================
+module "vm_private" {
+  source = "../../modules/compute"
+
+  name             = "vm-private-${var.environment}"
+  zone             = var.zone
+  subnet_id        = module.network.private_subnet_id
+  assign_public_ip = false
+  tags             = ["ssh-iap"]
+
+  labels = {
+    environment = var.environment
+    owner       = var.owner
+    managed_by  = "terraform"
+    tier        = "private"
+    phase       = "1-networking"
+  }
 }
