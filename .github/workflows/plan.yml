@@ -1,0 +1,102 @@
+name: Terraform Plan (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'environments/dev/**'
+      - 'modules/**'
+      - '.github/workflows/plan.yml'
+
+# Permisos minimos necesarios
+permissions:
+  contents: read          # para hacer checkout del codigo
+  id-token: write         # para emitir token OIDC
+  pull-requests: write    # para postear comentario en el PR
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: environments/dev
+
+    steps:
+      # 1. Clonar el repo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Autenticar con GCP via Workload Identity Federation
+      # NO usa keys JSON - usa token OIDC emitido por GitHub
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.SA_PLAN_EMAIL }}
+
+      # 3. Instalar Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      # 4. Formato check (falla si archivos no estan formateados)
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      # 5. Init (conecta al backend GCS)
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      # 6. Validate (sintaxis)
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+
+      # 7. Plan (NO aplica cambios, solo muestra que haria)
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+        continue-on-error: true
+
+      # 8. Postear el plan como comentario en el PR
+      - name: Comment PR with Plan
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌 \`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Workflow: \`${{ github.workflow }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      # 9. Fallar el job si el plan fallo (asi el PR muestra error)
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
