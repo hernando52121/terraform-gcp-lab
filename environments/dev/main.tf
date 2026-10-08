@@ -68,5 +68,6 @@ module "vm_private" {
     managed_by  = "terraform"
     tier        = "private"
     phase       = "1-networking"
+    test_label  = "demo-oidc"    # ← AGREGA ESTA LINEA
   }
 }
