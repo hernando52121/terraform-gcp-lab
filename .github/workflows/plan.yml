@@ -59,7 +59,7 @@ jobs:
         id: validate
         run: terraform validate
 
-      # 7. Plan (NO aplica cambios, solo muestra que haria)
+     # 7. Plan (NO aplica cambios, solo muestra que haria)
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color -input=false
@@ -96,7 +96,9 @@ jobs:
               body: output
             });
 
-      # 9. Fallar el job si el plan fallo (asi el PR muestra error)
+         # 9. Fallar el job SI Y SOLO SI el plan realmente fallo
       - name: Terraform Plan Status
         if: steps.plan.outcome == 'failure'
-        run: exit 1
+        run: |
+          echo "Terraform plan failed - check logs above"
+          exit 1
