@@ -23,8 +23,12 @@ jobs:
       run:
         working-directory: environments/dev
 
+    # Variables de entorno disponibles para TODOS los steps del job
+    # TF_VAR_* es convencion de Terraform: se mapean a variables del codigo
+    env:
+      TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+
     steps:
-      # 1. Clonar el repo
       - name: Checkout code
         uses: actions/checkout@v4
 
