@@ -49,10 +49,17 @@ resource "google_project_iam_member" "plan_viewer" {
   member  = "serviceAccount:${google_service_account.gh_actions_plan.email}"
 }
 
-resource "google_project_iam_member" "plan_storage_viewer" {
-  project = var.project_id
-  role    = "roles/storage.objectViewer"
-  member  = "serviceAccount:${google_service_account.gh_actions_plan.email}"
+# ========================================================
+# NOTA IMPORTANTE: Terraform plan necesita escribir
+# un lockfile en el bucket GCS para prevenir concurrencia,
+# aunque no modifique state ni infra. Por eso otorgamos
+# objectUser directamente SOBRE EL BUCKET (no project-wide).
+# Esto es mas granular y mas seguro.
+# ========================================================
+resource "google_storage_bucket_iam_member" "plan_bucket_user" {
+  bucket = "terraform-gcp-lab521"
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.gh_actions_plan.email}"
 }
 
 # =====================================================

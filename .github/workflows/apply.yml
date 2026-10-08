@@ -11,13 +11,14 @@ jobs:
   apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-
-    # Environment protection: requiere aprobacion manual si lo configuramos
     environment: production
 
     defaults:
       run:
         working-directory: environments/dev
+
+    env:
+      TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
     steps:
       - name: Checkout code
