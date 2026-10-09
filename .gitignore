@@ -30,3 +30,7 @@ credentials/
 
 # Logs
 *.log
+
+# Terraform plan files (binary, never commit)
+*.tfplan
+tfplan
