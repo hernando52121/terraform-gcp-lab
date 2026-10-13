@@ -1,0 +1,55 @@
+# ============================================================
+# ArgoCD Application CRD para podinfo
+# ============================================================
+# Esta Application le dice a ArgoCD:
+# - "Sincroniza la carpeta manifests/apps/podinfo/ del repo"
+# - "Aplica todo lo que esta ahi al cluster, en el namespace podinfo"
+# - "Si algo esta fuera de sync, revierte al estado del Git"
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: podinfo
+  namespace: argocd  # Las Applications viven en el namespace de ArgoCD
+  labels:
+    app.kubernetes.io/name: podinfo
+    app.kubernetes.io/managed-by: argocd
+  # Finalizer: al borrar la Application, ArgoCD limpia los recursos del cluster
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # ========================================================
+  # Source: donde esta el codigo (repo Git)
+  # ========================================================
+  source:
+    repoURL: https://github.com/hernando52121/terraform-gcp-lab.git
+    targetRevision: feat/phase-3-gke-argocd  # Branch del que lee
+    path: manifests/apps/podinfo  # Carpeta donde estan los YAML
+
+  # ========================================================
+  # Destination: donde se despliega (cluster + namespace)
+  # ========================================================
+  destination:
+    server: https://kubernetes.default.svc  # El mismo cluster donde vive ArgoCD
+    namespace: podinfo
+
+  # ========================================================
+  # Sync policy: comportamiento automatico
+  # ========================================================
+  syncPolicy:
+    # Automated: ArgoCD sincroniza solo (sin tener que dar click en SYNC)
+    automated:
+      prune: true     # Si borras un YAML del repo, ArgoCD lo borra del cluster
+      selfHeal: true  # Si alguien hace kubectl edit, ArgoCD revierte al estado del Git
+    syncOptions:
+      - CreateNamespace=true  # Crea namespace si no existe
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

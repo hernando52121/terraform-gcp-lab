@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: podinfo
+  labels:
+    app.kubernetes.io/name: podinfo
+spec:
+  type: LoadBalancer  # IP publica (GCP crea Google LoadBalancer)
+  ports:
+    - name: http
+      port: 80  # puerto externo (lo que usuarios ven)
+      targetPort: 9898  # puerto del container
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: podinfo

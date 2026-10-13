@@ -1,0 +1,34 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: podinfo
+  namespace: podinfo
+  labels:
+    app.kubernetes.io/name: podinfo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: podinfo
+  minReplicas: 2   # Siempre al menos 2 (HA basica)
+  maxReplicas: 10  # Techo para evitar costos descontrolados
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Escala cuando CPU promedio > 70%
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30  # Espera 30s de carga sostenida antes de escalar
+      policies:
+        - type: Percent
+          value: 100  # Puede duplicar replicas en cada ciclo
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Espera 5 min antes de bajar (evita flapping)
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
